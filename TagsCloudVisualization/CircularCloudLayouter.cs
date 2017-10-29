@@ -13,7 +13,7 @@ namespace TagsCloudVisualization
 	{
 		private static Point Center;
 		private static List<Rectangle> cloudOfRectangles;
-
+		
 		public CircularCloudLayouter(Point center)
 		{
 			Center = center;
@@ -43,17 +43,6 @@ namespace TagsCloudVisualization
 		{
 			return new Rectangle();
 		}
-
-		public bool IsRectanglesIntersect(Rectangle rectangle1, Rectangle rectangle2)
-		{
-			var xMax = Math.Max(rectangle1.X, rectangle2.X);
-			var xMin = Math.Min(rectangle1.X + rectangle1.Width,
-				rectangle2.X + rectangle2.Width);
-			var yMax = Math.Max(rectangle1.Y, rectangle2.Y);
-			var yMin = Math.Min(rectangle1.Y + rectangle1.Height,
-				rectangle2.Y + rectangle2.Height);
-			return xMax < xMin && yMax < yMin;
-		}
 	}
 
 	[TestFixture]
@@ -71,7 +60,6 @@ namespace TagsCloudVisualization
 		public void PutNextRectangle_ReturnNotFirstRectangleWithRigthSize()
 		{
 			var cloud = new CircularCloudLayouter(new Point(12, 12));
-			var rectangle = new Rectangle(10, 10, 4, 4);
 			var sizeOfRectangle = new Size(4, 4);
 			cloud.PutNextRectangle(sizeOfRectangle);
 			cloud.PutNextRectangle(sizeOfRectangle).Size.
@@ -84,8 +72,7 @@ namespace TagsCloudVisualization
 			var cloud = new CircularCloudLayouter(new Point(15, 15));
 			var firstRectengle = cloud.PutNextRectangle(new Size(4, 4));
 			var secondRectangle = cloud.PutNextRectangle(new Size(4, 4));
-			cloud.IsRectanglesIntersect(firstRectengle, secondRectangle).
-				Should().BeFalse();
+			firstRectengle.IntersectsWith(secondRectangle).Should().BeFalse();
 		}
 	}
 }
