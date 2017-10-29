@@ -27,7 +27,8 @@ namespace TagsCloudVisualization
 				cloudOfRectangles.Add(GetFirstRectangle(rectangleSize));
 				return GetFirstRectangle(rectangleSize);
 			}
-			return new Rectangle();
+			cloudOfRectangles.Add(GetNotFirstRectangle(rectangleSize));
+			return GetNotFirstRectangle(rectangleSize);
 		}
 
 		private Rectangle GetFirstRectangle(Size rectangleSize)
@@ -37,18 +38,54 @@ namespace TagsCloudVisualization
 				rectangleSize.Width, 
 				rectangleSize.Height);
 		}
+
+		private Rectangle GetNotFirstRectangle(Size rectangleSize)
+		{
+			return new Rectangle();
+		}
+
+		public bool IsRectanglesIntersect(Rectangle rectangle1, Rectangle rectangle2)
+		{
+			var xMax = Math.Max(rectangle1.X, rectangle2.X);
+			var xMin = Math.Min(rectangle1.X + rectangle1.Width,
+				rectangle2.X + rectangle2.Width);
+			var yMax = Math.Max(rectangle1.Y, rectangle2.Y);
+			var yMin = Math.Min(rectangle1.Y + rectangle1.Height,
+				rectangle2.Y + rectangle2.Height);
+			return xMax < xMin && yMax < yMin;
+		}
 	}
 
 	[TestFixture]
 	class CircularCloudLayouter_Should
 	{
 		[Test]
-		public void CenterOfFirstRactangle_IsSutuated_InCenterOfCloud()
+		public void PutNextRectangle_CenterOfFirstRectangle_IsSutuated_InCenterOfCloud()
 		{
 			var cloud = new CircularCloudLayouter(new Point(12, 12));
 			var rectangle = new Rectangle(10, 10, 4, 4);
 			cloud.PutNextRectangle(new Size(4, 4)).ShouldBeEquivalentTo(rectangle);
+		}
 
+		[Test]
+		public void PutNextRectangle_ReturnNotFirstRectangleWithRigthSize()
+		{
+			var cloud = new CircularCloudLayouter(new Point(12, 12));
+			var rectangle = new Rectangle(10, 10, 4, 4);
+			var sizeOfRectangle = new Size(4, 4);
+			cloud.PutNextRectangle(sizeOfRectangle);
+			cloud.PutNextRectangle(sizeOfRectangle).Size.
+				ShouldBeEquivalentTo(sizeOfRectangle);
+		}
+
+		[Test]
+		public void PutNextRectangle_ReturnTwoRectangles_DoNotHaveIntersection()
+		{
+			var cloud = new CircularCloudLayouter(new Point(15, 15));
+			var firstRectengle = cloud.PutNextRectangle(new Size(4, 4));
+			var secondRectangle = cloud.PutNextRectangle(new Size(4, 4));
+			cloud.IsRectanglesIntersect(firstRectengle, secondRectangle).
+				Should().BeFalse();
 		}
 	}
 }
