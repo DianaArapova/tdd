@@ -12,36 +12,79 @@ namespace TagsCloudVisualization
 	public class CircularCloudLayouter
 	{
 		private static Point Center;
-		private static List<Rectangle> cloudOfRectangles;
+		private static List<Rectangle> CloudOfRectangles;
 		
 		public CircularCloudLayouter(Point center)
 		{
 			Center = center;
-			cloudOfRectangles = new List<Rectangle>();
+			CloudOfRectangles = new List<Rectangle>();
 		}
 
 		public Rectangle PutNextRectangle(Size rectangleSize)
 		{
-			if (cloudOfRectangles.Count == 0)
+			if (CloudOfRectangles.Count == 0)
 			{
-				cloudOfRectangles.Add(GetFirstRectangle(rectangleSize));
-				return GetFirstRectangle(rectangleSize);
+				var rectangle = GetRectangle(rectangleSize, Center);
+				CloudOfRectangles.Add(rectangle);
+				return rectangle;
 			}
-			cloudOfRectangles.Add(GetNotFirstRectangle(rectangleSize));
+			CloudOfRectangles.Add(GetNotFirstRectangle(rectangleSize));
 			return GetNotFirstRectangle(rectangleSize);
 		}
 
-		private Rectangle GetFirstRectangle(Size rectangleSize)
+		private Rectangle GetRectangle(Size rectangleSize, Point center)
 		{
-			return new Rectangle(Center.X - rectangleSize.Width / 2, 
-				Center.Y - rectangleSize.Height / 2, 
-				rectangleSize.Width, 
+			return new Rectangle(center.X - rectangleSize.Width / 2,
+				center.Y - rectangleSize.Height / 2,
+				rectangleSize.Width,
 				rectangleSize.Height);
+		}
+
+		private bool ValidateRectangle(Rectangle rectangle)
+		{
+			foreach (var r in CloudOfRectangles)
+			{
+				if (r.IntersectsWith(rectangle))
+					return false;
+			}
+			return true;
 		}
 
 		private Rectangle GetNotFirstRectangle(Size rectangleSize)
 		{
-			return new Rectangle();
+			bool isAnswerFind = false;
+			Rectangle rectangle = new Rectangle();
+			double r = 0;
+			while (!isAnswerFind)
+			{
+				for (double i = 0; i < 2 * Math.PI; i += Math.PI / 30)
+				{
+					var newVector = new DoublePoint(r * Math.Cos(i), r * Math.Sin(i));
+					var locationOfRectangle = newVector.ShiftPoint(Center);
+
+					rectangle = GetRectangle(rectangleSize, locationOfRectangle);
+					if (ValidateRectangle(rectangle))
+					{
+						isAnswerFind = true;
+						break;
+					}
+				}
+				r += 1;
+			}
+			return rectangle;
+		}
+
+
+		public void DrawCloud()
+		{
+			var bitmap = new Bitmap(800, 800);
+			var graphics = Graphics.FromImage(bitmap);
+			var centerRect = new Rectangle(Center, new Size(1, 1));
+			graphics.DrawRectangle(new Pen(Color.Brown), centerRect);
+			foreach (var rectangle in CloudOfRectangles)
+				graphics.DrawRectangle(new Pen(Color.Brown), rectangle);
+			graphics.Dispose();
+			bitmap.Save("cloud2.bmp");
 		}
 	}
 
@@ -66,13 +109,26 @@ namespace TagsCloudVisualization
 				ShouldBeEquivalentTo(sizeOfRectangle);
 		}
 
-		[Test]
-		public void PutNextRectangle_ReturnTwoRectangles_DoNotHaveIntersection()
+		[TestCase(2, 4, 4)]
+		[TestCase(100, 4, 4)]
+		[TestCase(100, 4, 2)]
+		[TestCase(1000, 2, 2)]
+		public void PutNextRectangle_ReturnRectangles_DoNotHaveIntersection(int count, int width, int height)
 		{
-			var cloud = new CircularCloudLayouter(new Point(15, 15));
-			var firstRectengle = cloud.PutNextRectangle(new Size(4, 4));
-			var secondRectangle = cloud.PutNextRectangle(new Size(4, 4));
-			firstRectengle.IntersectsWith(secondRectangle).Should().BeFalse();
+			var cloud = new CircularCloudLayouter(new Point(150, 150));
+			var listOfRectangles = new List<Rectangle>();
+			for (int i = 0; i < count; i++)
+			{
+				listOfRectangles.Add(cloud.PutNextRectangle(new Size(width, height)));	
+			}
+			for (int i = 0; i < count; i++)
+			{
+				for (int j = i + 1; j < count; j++)
+				{
+					listOfRectangles[i].IntersectsWith(listOfRectangles[j]).
+						Should().BeFalse();
+				}
+			}
 		}
 	}
 }
