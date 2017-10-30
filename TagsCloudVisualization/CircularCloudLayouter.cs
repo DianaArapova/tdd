@@ -6,13 +6,14 @@ using System.Text;
 using System.Threading.Tasks;
 using NUnit.Framework;
 using FluentAssertions;
+using NUnit.Framework.Interfaces;
 
 namespace TagsCloudVisualization
 {
 	public class CircularCloudLayouter
 	{
-		private static Point Center;
-		private static List<Rectangle> CloudOfRectangles;
+		private Point Center;
+		public List<Rectangle> CloudOfRectangles;
 		
 		public CircularCloudLayouter(Point center)
 		{
@@ -59,8 +60,9 @@ namespace TagsCloudVisualization
 			{
 				for (double i = 0; i < 2 * Math.PI; i += Math.PI / 30)
 				{
-					var newVector = new DoublePoint(r * Math.Cos(i), r * Math.Sin(i));
-					var locationOfRectangle = newVector.ShiftPoint(Center);
+					var locationOfRectangle = 
+						new DoublePoint(r * Math.Cos(i), r * Math.Sin(i))
+						.ShiftPoint(Center);
 
 					rectangle = GetRectangle(rectangleSize, locationOfRectangle);
 					if (ValidateRectangle(rectangle))
@@ -75,34 +77,56 @@ namespace TagsCloudVisualization
 		}
 
 
-		public void DrawCloud()
+		public void DrawCloud(string nameOfFile)
 		{
-			var bitmap = new Bitmap(800, 800);
+			var bitmap = new Bitmap(500, 500);
 			var graphics = Graphics.FromImage(bitmap);
 			var centerRect = new Rectangle(Center, new Size(1, 1));
 			graphics.DrawRectangle(new Pen(Color.Brown), centerRect);
 			foreach (var rectangle in CloudOfRectangles)
 				graphics.DrawRectangle(new Pen(Color.Brown), rectangle);
 			graphics.Dispose();
-			bitmap.Save("cloud2.bmp");
+			bitmap.Save(nameOfFile + ".bmp");
 		}
 	}
 
 	[TestFixture]
 	class CircularCloudLayouter_Should
 	{
-		[Test]
-		public void PutNextRectangle_CenterOfFirstRectangle_IsSutuated_InCenterOfCloud()
+		private CircularCloudLayouter cloud;
+
+		[TearDown]
+		public void TearDown()
 		{
-			var cloud = new CircularCloudLayouter(new Point(12, 12));
-			var rectangle = new Rectangle(10, 10, 4, 4);
-			cloud.PutNextRectangle(new Size(4, 4)).ShouldBeEquivalentTo(rectangle);
+			if (TestContext.CurrentContext.Result.Outcome.Status.Equals(TestStatus.Failed))
+			{
+				cloud.DrawCloud(TestContext.CurrentContext.TestDirectory +
+					TestContext.CurrentContext.Test.Name);
+				
+				Console.WriteLine("Tag cloud visualization saved to file " + 
+					TestContext.CurrentContext.TestDirectory + 
+					TestContext.CurrentContext.Test.Name + ".bmp");
+			}
+		}
+
+		[TestCase(10, 10)]
+		[TestCase(11, 11)]
+		[TestCase(10, 8)]
+		public void PutNextRectangle_CenterOfFirstRectangle_IsSutuated_InCenterOfCloud
+			(int width, int height)
+		{
+			var center = new Point(120, 120);
+			cloud = new CircularCloudLayouter(center);
+			var x = center.X - width / 2;
+			var y = center.Y - height / 2;
+			var rectangle = new Rectangle(x, y, width, height);
+			cloud.PutNextRectangle(new Size(width, height)).ShouldBeEquivalentTo(rectangle);
 		}
 
 		[Test]
 		public void PutNextRectangle_ReturnNotFirstRectangleWithRigthSize()
 		{
-			var cloud = new CircularCloudLayouter(new Point(12, 12));
+			cloud = new CircularCloudLayouter(new Point(12, 12));
 			var sizeOfRectangle = new Size(4, 4);
 			cloud.PutNextRectangle(sizeOfRectangle);
 			cloud.PutNextRectangle(sizeOfRectangle).Size.
@@ -110,12 +134,13 @@ namespace TagsCloudVisualization
 		}
 
 		[TestCase(2, 4, 4)]
+		[TestCase(50, 40, 40)]
 		[TestCase(100, 4, 4)]
 		[TestCase(100, 4, 2)]
 		[TestCase(1000, 2, 2)]
 		public void PutNextRectangle_ReturnRectangles_DoNotHaveIntersection(int count, int width, int height)
 		{
-			var cloud = new CircularCloudLayouter(new Point(150, 150));
+			cloud = new CircularCloudLayouter(new Point(150, 150));
 			var listOfRectangles = new List<Rectangle>();
 			for (int i = 0; i < count; i++)
 			{
