@@ -7,8 +7,8 @@ namespace TagsCloudVisualization
 		public static void Main()
 		{
 			var cloud = new CircularCloudLayouter(new Point(150, 150));
-			int count = 50;
-			for (int i = 0; i < count; i++)
+			const int count = 50;
+			for (var i = 0; i < count; i++)
 			{
 				cloud.PutNextRectangle(new Size(20, 20));
 				if (i < 5)
