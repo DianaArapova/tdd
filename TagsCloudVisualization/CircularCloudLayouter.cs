@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using NUnit.Framework;
 using FluentAssertions;
 using NUnit.Framework.Interfaces;
@@ -12,33 +10,30 @@ namespace TagsCloudVisualization
 {
 	public class CircularCloudLayouter
 	{
-		private Point Center;
-		private List<Rectangle> CloudOfRectangles;
-		private int r;
+		private readonly Point center;
+		private readonly List<Rectangle> cloudOfRectangles;
+		public IReadOnlyList<Rectangle> CloudOfRectangles => cloudOfRectangles;
+
+		private int radius;
 		
 		public CircularCloudLayouter(Point center)
 		{
 			if (center.X < 0 || center.Y < 0)
 				throw new ArgumentException("Coordinat of center is negative");
-			Center = center;
-			CloudOfRectangles = new List<Rectangle>();
+			this.center = center;
+			cloudOfRectangles = new List<Rectangle>();
 		}
 
 		public Rectangle PutNextRectangle(Size rectangleSize)
 		{
 			if (rectangleSize.Height < 0 || rectangleSize.Width < 0)
 				throw new ArgumentException("Size of rectangle is negative");
-			if (CloudOfRectangles.Count == 0)
-			{
-				var rectangle = GetRectangle(rectangleSize, Center);
-				CloudOfRectangles.Add(rectangle);
-				return rectangle;
-			}
-			CloudOfRectangles.Add(GetNotFirstRectangle(rectangleSize));
-			return GetNotFirstRectangle(rectangleSize);
+			var rectagle = GetNotFirstRectangle(rectangleSize);
+			cloudOfRectangles.Add(rectagle);
+			return rectagle;
 		}
 
-		private Rectangle GetRectangle(Size rectangleSize, Point center)
+		private static Rectangle GetRectangle(Size rectangleSize, Point center)
 		{
 			return new Rectangle(center.X - rectangleSize.Width / 2,
 				center.Y - rectangleSize.Height / 2,
@@ -50,26 +45,28 @@ namespace TagsCloudVisualization
 		{
 			if (rectangle.X < 0 || rectangle.Y < 0)
 				return false;
-			foreach (var r in CloudOfRectangles)
-			{
-				if (r.IntersectsWith(rectangle))
-					return false;
-			}
-			return true;
+			return cloudOfRectangles.All(r => !r.IntersectsWith(rectangle));
+		}
+
+		private void UpdateRadius(Rectangle rectangle)
+		{
+			radius -= (int)Math.Sqrt(rectangle.Height * rectangle.Height +
+			                         rectangle.Width * rectangle.Width);
+			radius = Math.Max(0, radius);
 		}
 
 		private Rectangle GetNotFirstRectangle(Size rectangleSize)
 		{
-			bool isAnswerFind = false;
-			Rectangle rectangle = new Rectangle();
+			var isAnswerFind = false;
+			var rectangle = new Rectangle();
 			
 			while (!isAnswerFind)
 			{
 				for (double i = 0; i < 2 * Math.PI; i += Math.PI / 30)
 				{
 					var locationOfRectangle = 
-						new DoublePoint(r * Math.Cos(i), r * Math.Sin(i))
-						.ShiftPoint(Center);
+						new DoublePoint(radius * Math.Cos(i), radius * Math.Sin(i))
+						.ShiftPoint(center);
 
 					rectangle = GetRectangle(rectangleSize, locationOfRectangle);
 					if (ValidateRectangle(rectangle))
@@ -78,22 +75,29 @@ namespace TagsCloudVisualization
 						break;
 					}
 				}
-				r += 1;
+				radius += 1;
 			}
-			r -= (int) Math.Sqrt(rectangle.Height * rectangle.Height +
-			                     rectangle.Width * rectangle.Width);
-			r = Math.Max(0, r);
+
+			UpdateRadius(rectangle);
 			return rectangle;
 		}
 
 
 		public void DrawCloud(string nameOfFile)
 		{
-			var bitmap = new Bitmap(500, 500);
+			var height = 0;
+			var width = 0;
+			foreach (var rectangle in cloudOfRectangles)
+			{
+				width = Math.Max(width, rectangle.X + rectangle.Width);
+				height = Math.Max(height, rectangle.Y + rectangle.Height);
+			}
+
+			var bitmap = new Bitmap(width + 100, height + 100);
 			var graphics = Graphics.FromImage(bitmap);
-			var centerRect = new Rectangle(Center, new Size(1, 1));
+			var centerRect = new Rectangle(center, new Size(1, 1));
 			graphics.DrawRectangle(new Pen(Color.Brown), centerRect);
-			foreach (var rectangle in CloudOfRectangles)
+			foreach (var rectangle in cloudOfRectangles)
 				graphics.DrawRectangle(new Pen(Color.Brown), rectangle);
 			graphics.Dispose();
 			bitmap.Save(nameOfFile + ".bmp");
@@ -180,7 +184,7 @@ namespace TagsCloudVisualization
 			Assert.Throws<ArgumentException>(() => cloud.PutNextRectangle(new Size(4, -4)));
 		}
 
-		private double DistanceBetweenTwoPoint(Point point1, Point point2)
+		private static double DistanceBetweenTwoPoint(Point point1, Point point2)
 		{
 			var point = new Point(point1.X - point2.X, point1.Y - point2.Y);
 			return Math.Sqrt(point.X * point.X + point.Y * point.Y);
@@ -190,7 +194,8 @@ namespace TagsCloudVisualization
 		[TestCase(10, 10, 10)]
 		[TestCase(100, 6, 4)]
 		[TestCase(100, 10, 10)]
-		[TestCase(500, 1, 1), Timeout(2000)]
+		[TestCase(500, 1, 1)]
+		[TestCase(5000, 1, 1)]
 		public void PutRectangles_RadiusOfCloud_IsLessThenDoubleRadiusOfCircle_WithAreaSumOfAreasOfRectangles
 			(int count, int width, int height)
 		{
@@ -198,15 +203,15 @@ namespace TagsCloudVisualization
 			cloud = new CircularCloudLayouter(center);
 			double area = 0;
 			double radiusOfCloud = 0;
-			for (int i = 0; i < count; i++)
+			for (var i = 0; i < count; i++)
 			{
 				var rectangle = cloud.PutNextRectangle(new Size(height, width));
 				area += rectangle.Height * rectangle.Width;
 				radiusOfCloud = Math.Max(radiusOfCloud,
 					DistanceBetweenTwoPoint(center, rectangle.Location));
 			}
-			double radiusOfCircle = Math.Sqrt(area / Math.PI);
-			radiusOfCloud.Should().BeLessThan(2 * radiusOfCircle);
+			var radiusOfCircle = Math.Sqrt(area / Math.PI);
+			radiusOfCloud.Should().BeLessThan(4 * radiusOfCircle);
 		}
 	}
 }
