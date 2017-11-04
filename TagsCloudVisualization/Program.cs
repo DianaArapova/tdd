@@ -15,7 +15,7 @@ namespace TagsCloudVisualization
 					cloud.PutNextRectangle(new Size(40, 40));
 			}
 
-			cloud.DrawCloud("cloud");
+			cloud.DrawCloud("cloud.bmp");
 		}
 	}
 }

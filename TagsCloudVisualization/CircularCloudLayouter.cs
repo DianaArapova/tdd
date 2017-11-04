@@ -28,7 +28,7 @@ namespace TagsCloudVisualization
 		{
 			if (rectangleSize.Height < 0 || rectangleSize.Width < 0)
 				throw new ArgumentException("Size of rectangle is negative");
-			var rectagle = GetNotFirstRectangle(rectangleSize);
+			var rectagle = FindLocationForRectangle(rectangleSize);
 			cloudOfRectangles.Add(rectagle);
 			return rectagle;
 		}
@@ -55,7 +55,12 @@ namespace TagsCloudVisualization
 			radius = Math.Max(0, radius);
 		}
 
-		private Rectangle GetNotFirstRectangle(Size rectangleSize)
+		private static Point ShiftPoint(Point point, double x, double y)
+		{
+			return new Point((int)(point.X + x), (int)(point.Y + y));
+		}
+
+		private Rectangle FindLocationForRectangle(Size rectangleSize)
 		{
 			var isAnswerFind = false;
 			var rectangle = new Rectangle();
@@ -65,8 +70,7 @@ namespace TagsCloudVisualization
 				for (double i = 0; i < 2 * Math.PI; i += Math.PI / 30)
 				{
 					var locationOfRectangle = 
-						new DoublePoint(radius * Math.Cos(i), radius * Math.Sin(i))
-						.ShiftPoint(center);
+						ShiftPoint(center, radius * Math.Cos(i), radius * Math.Sin(i));
 
 					rectangle = GetRectangle(rectangleSize, locationOfRectangle);
 					if (ValidateRectangle(rectangle))
@@ -81,7 +85,6 @@ namespace TagsCloudVisualization
 			UpdateRadius(rectangle);
 			return rectangle;
 		}
-
 
 		public void DrawCloud(string nameOfFile)
 		{
@@ -100,7 +103,7 @@ namespace TagsCloudVisualization
 			foreach (var rectangle in cloudOfRectangles)
 				graphics.DrawRectangle(new Pen(Color.Brown), rectangle);
 			graphics.Dispose();
-			bitmap.Save(nameOfFile + ".bmp");
+			bitmap.Save(nameOfFile);
 		}
 	}
 
@@ -112,15 +115,15 @@ namespace TagsCloudVisualization
 		[TearDown]
 		public void TearDown()
 		{
-			if (TestContext.CurrentContext.Result.Outcome.Status.Equals(TestStatus.Failed))
-			{
-				cloud.DrawCloud(TestContext.CurrentContext.TestDirectory +
-					TestContext.CurrentContext.Test.Name);
+			if (!TestContext.CurrentContext.Result.Outcome.Status.Equals(TestStatus.Failed))
+				return;
+
+			var nameOfFile = TestContext.CurrentContext.TestDirectory +
+			                 TestContext.CurrentContext.Test.Name + ".bmp";
+			cloud.DrawCloud(nameOfFile);
 				
-				Console.WriteLine("Tag cloud visualization saved to file " + 
-					TestContext.CurrentContext.TestDirectory + 
-					TestContext.CurrentContext.Test.Name + ".bmp");
-			}
+			Console.WriteLine("Tag cloud visualization saved to file " + 
+			                  nameOfFile);
 		}
 
 		[TestCase(10, 10)]
@@ -156,18 +159,14 @@ namespace TagsCloudVisualization
 		{
 			cloud = new CircularCloudLayouter(new Point(150, 150));
 			var listOfRectangles = new List<Rectangle>();
-			for (int i = 0; i < count; i++)
+			for (var i = 0; i < count; i++)
 			{
 				listOfRectangles.Add(cloud.PutNextRectangle(new Size(width, height)));	
 			}
-			for (int i = 0; i < count; i++)
-			{
-				for (int j = i + 1; j < count; j++)
-				{
-					listOfRectangles[i].IntersectsWith(listOfRectangles[j]).
-						Should().BeFalse();
-				}
-			}
+			listOfRectangles.SelectMany(a => listOfRectangles, (n, a) => new {n, a}).
+				Where(a => a.a != a.n).
+				All(a => !a.a.IntersectsWith(a.n)).
+				Should().BeTrue();
 		}
 
 		[Test]
